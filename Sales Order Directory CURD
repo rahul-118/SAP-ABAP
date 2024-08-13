@@ -1,0 +1,171 @@
+*&---------------------------------------------------------------------*
+*& Report  ZORDER_CRUD
+*&
+*&---------------------------------------------------------------------*
+*&Program Requirement: Create an ABAP report to provide four radio buttons
+*with name Create, Update, Read and Delete. Order NO as input box will be
+*always visible. If Create button is clicked, Input boxes will be available
+* for Order Details Input. On Save, it will save data in table. If Update
+*button is clicked, Input boxes will be visible with pre-loaded data for the
+* Employee ID. On Update, it will update data in the table. If Read is
+*clicked, the data for the Employee ID will be visible. If delete
+*radio button is clicked, on click of Delete button, data will be deleted.
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZORDER_CRUD.
+
+"decalring needed variables for execution of the report.
+INITIALIZATION.
+
+*TABLES ZORDER_HEADER_D.
+
+DATA : lt_order TYPE STANDARD TABLE OF ZORDER_HEADER_D. "internal table of zorder_header_d
+
+FIELD-SYMBOLS : <fs_order> TYPE ZORDER_HEADER_D."field symbol for internal table it_order
+
+
+PARAMETERS: p_order TYPE ZORDER_HEADER_D-ORDER_NO. "Input field for Order Number
+
+"Selection block containing the CRUD operations
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+   PARAMETERS: p_read RADIOBUTTON GROUP rg1 USER-COMMAND flag DEFAULT 'X',"p_read will be enabled as default among the radiobuttons
+               p_create RADIOBUTTON GROUP rg1,
+               p_update RADIOBUTTON GROUP rg1,
+               p_delete RADIOBUTTON GROUP rg1.
+  SELECTION-SCREEN END OF BLOCK b1.
+
+
+ "Feilds for performing  the CRUD operations
+ PARAMETERS: p_custID type  ZORDER_HEADER_D-customer_ID MODIF ID pa1,
+             p_ordate TYPE  ZORDER_HEADER_D-order_date MODIF ID pa2,
+             p_amt    TYPE  ZORDER_HEADER_d-total_amount MODIF ID pa3.
+
+
+"Selection of parameters on basis of radiobuttons.
+AT SELECTION-SCREEN OUTPUT.
+ LOOP AT SCREEN.
+   CASE screen-group1.
+     When 'PA1'.
+       if (  p_read = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+       if (  p_create = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_update = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_delete = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+
+     When 'PA2'.
+       if (  p_read = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+       if (  p_create = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_update = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_delete = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+     When 'PA3'.
+       if (  p_read = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+        if (  p_create = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_update = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_delete = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+
+
+         MODIFY SCREEN.
+     ENDCASE.
+   ENDLOOP.
+
+"code for executing changes when radio button is selected
+AT SELECTION-SCREEN ON RADIOBUTTON GROUP rg1.
+  "Getting data autofilled when update radiobutton is selected.
+  if ( p_update = 'X' ).
+
+    Select * from ZORDER_HEADER_d into CORRESPONDING FIELDS OF TABLE lt_order WHERE order_no = p_order.
+    LOOP AT lt_order ASSIGNING <fs_order>.
+          p_custID = <fs_order>-customer_id.
+          p_ordate = <fs_order>-order_date.
+          p_amt    = <fs_order>-total_amount.
+      ENDLOOP.
+
+    ENDIF.
+
+
+START-OF-SELECTION.
+
+" Display data when READ radio button is selected for the oorder number p_order
+if ( p_read = 'X' ).
+  Select * from ZORDER_HEADER_d into CORRESPONDING FIELDS OF TABLE lt_order WHERE order_no = p_order.
+    cl_demo_output=>display( lt_order ).
+  ENDIF.
+
+  REFRESH : lt_order.
+ "Create a new entry of recod in table ZORDER_header_d is create radio button is  selected.
+ if ( p_create = 'X' ).
+   Select * from ZORDER_HEADER_d into CORRESPONDING FIELDS OF TABLE lt_order WHERE order_no = p_order.
+   if ( sy-subrc <> 0 ).
+
+     APPEND INITIAL LINE TO lt_order ASSIGNING <fs_order>.
+     if ( <fs_order> is ASSIGNED ).
+
+     <fs_order>-order_no = p_order.
+     <fs_order>-order_date = p_ordate.
+     <fs_order>-customer_id = p_custID.
+     <fs_order>-total_amount = p_amt.
+     UNASSIGN <fs_order>.
+     endif.
+     insert  ZOrder_header_d  FROM TABLE lt_order.
+
+
+   else.
+     message 'Record already exist for order number' TYPE 'I'.
+     endif.
+
+    REFRESH : lt_order.
+   endif.
+
+
+ "update existing records
+ if ( p_update = 'X' ).
+   Select * from ZORDER_HEADER_d into CORRESPONDING FIELDS OF TABLE lt_order WHERE order_no = p_order.
+   if ( sy-subrc = 0 ).
+
+     APPEND INITIAL LINE TO lt_order ASSIGNING <fs_order>.
+     if ( <fs_order> is ASSIGNED ).
+
+     <fs_order>-order_no = p_order.
+     <fs_order>-order_date = p_ordate.
+     <fs_order>-customer_id = p_custID.
+     <fs_order>-total_amount = p_amt.
+     UNASSIGN <fs_order>.
+     endif.
+     update  ZOrder_header_d  FROM TABLE lt_order.
+
+     endif.
+     refresh : lt_order.
+     endif.
+
+"Delete records from table based on order number
+if ( p_delete = 'X' ).
+  Delete FROM   Zorder_header_d  WHERE order_no = p_order.
+  ENDIF.
