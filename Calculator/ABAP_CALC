@@ -1,1 +1,76 @@
+*&---------------------------------------------------------------------*
+*& Report  ZCALCULATOR
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
 
+REPORT ZCALCULATOR.
+
+
+
+*Initialization of selection screen block with title text 001
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_num1 TYPE i,
+            p_num2 TYPE i.
+SELECTION-SCREEN END OF BLOCK b1.
+
+
+"Creating block for placing buttons for calculation.
+SELECTION-SCREEN : BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-002,
+                  PUSHBUTTON /10(10) add  USER-COMMAND add,
+                  PUSHBUTTON 25(10) sub USER-COMMAND sub,
+                  PUSHBUTTON 40(10) mul USER-COMMAND multiply,
+                  PUSHBUTTON 55(10) div USER-COMMAND divide,
+                  SKIP,
+                  PUSHBUTTON /32(10) clear USER-COMMAND clear,
+                  skip.
+                  PARAMETERS : p_result type i.
+SELECTION-SCREEN END OF  BLOCK b2.
+
+"initialising values to the push buttons created
+INITIALIZATION.
+add = 'Add'.
+sub = 'Subtract'.
+mul = 'Multiply'.
+div = 'Divide'.
+clear = 'Clear'.
+
+"Code for Calculations
+At SELECTION-SCREEN .
+if ( p_num1 IS NOT INITIAL and p_num2 is NOT INITIAL ).
+    CASE sy-ucomm.
+    WHEN 'ADD'.
+
+      p_result = p_num1 + p_num2.
+
+
+    WHEN 'SUB'.
+
+      p_result = p_num1 - p_num2.
+
+
+
+    WHEN 'DIVIDE'.
+
+        p_result = p_num1 / p_num2.
+
+
+
+
+
+    WHEN 'MULTIPLY'.
+
+      p_result = p_num1 * p_num2.
+
+
+    WHEN 'CLEAR'.
+      CLEAR   : p_num1,p_num2.
+
+
+  ENDCASE.
+   ELSE.
+   MESSAGE 'Please provide both number 1 and number 2 in order to calculate' TYPE 'I' DISPLAY LIKE 'E'.
+   EXIT.
+   ENDIF.
