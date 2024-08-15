@@ -1,0 +1,127 @@
+*&---------------------------------------------------------------------*
+*& Report  ZFI_PAYMENTS_INFO
+*&
+*&---------------------------------------------------------------------*
+*&The Program takes input for customer id, company code, account document, Fiscal Year and amount. displays infor if record exist or if record doesnot exist opens a new screen where we can save the recod in table.
+*&The program uses SQL commands like Modify and also works with Screen creation and layout design.
+*&---------------------------------------------------------------------*
+
+REPORT ZFI_PAYMENTS_INFO.
+
+INITIALIZATION.
+INCLUDE ZFI_DECLARATION. "Includes Declaration of internal Table and Parameters
+
+
+"Program Logic
+START-OF-SELECTION.
+INCLUDE ZFI_PROGRAM_LOGIC.
+
+INCLUDE ZFI_PAYMENTS_INFO_STATUS_01O01. " Include for Selection Screen 0100 logic
+INCLUDE ZFI_MODULES_SCREEN. "Includes all Moduels for Screen 0100
+
+
+"block of codes in each includes.
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_DECLARATION
+*&---------------------------------------------------------------------*
+ DATA : GT_ITAB TYPE  ZFI_PAYMENTS.
+
+
+  SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-001.
+  PARAMETERS : P_KUNNR TYPE ZFI_PAYMENTS-KUNNR,
+               P_BUKRS TYPE ZFI_PAYMENTS-BUKRS,
+               P_BELNR TYPE ZFI_PAYMENTS-BELNR,
+               P_GJAHR TYPE ZFI_PAYMENTS-GJAHR,
+               P_DMBTR TYPE ZFI_PAYMENTS-DMBTR.
+
+  SELECTION-SCREEN END OF BLOCK B1.
+
+
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_PROGRAM_LOGIC
+*&---------------------------------------------------------------------*
+
+  IF ( P_KUNNR IS NOT INITIAL AND
+         P_BUKRS IS NOT INITIAL AND
+         P_BELNR IS NOT INITIAL AND
+         P_GJAHR IS NOT INITIAL AND
+         P_DMBTR IS NOT INITIAL ).
+
+    SELECT SINGLE * FROM ZFI_PAYMENTS INTO  GT_ITAB WHERE KUNNR = P_KUNNR
+                                        AND BUKRS = P_BUKRS
+                                        AND BELNR = P_BELNR
+                                        AND GJAHR = P_GJAHR
+                                        AND DMBTR = P_DMBTR.
+
+
+
+    IF sy-subrc <> 0.
+       MESSAGE 'Record does not exist' TYPE 'I'.
+
+
+
+
+    GT_ITAB-KUNNR = P_KUNNR.
+    GT_ITAB-BUKRS = P_BUKRS.
+    GT_ITAB-BELNR = P_BELNR.
+    GT_ITAB-GJAHR = P_GJAHR.
+    GT_ITAB-DMBTR = P_DMBTR.
+
+    CALL SCREEN 0100 STARTING AT 10 2.
+    ELSE.
+      CL_DEMO_OUTPUT=>DISPLAY( GT_ITAB ).
+
+    ENDIF.
+
+  ENDIF.
+
+
+
+*----------------------------------------------------------------------*
+***INCLUDE ZFI_PAYMENTS_INFO_STATUS_01O01.
+*----------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE STATUS_0100 OUTPUT.
+  SET PF-STATUS 'PF1'.
+  SET TITLEBAR 'T1'.
+
+ENDMODULE.                 " STATUS_0100  OUTPUT
+
+
+*&---------------------------------------------------------------------*
+*&  Include           ZFI_MODULES_SCREEN
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&      Module  EXIT  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE EXIT INPUT.
+  SET SCREEN 0.
+
+ENDMODULE.                 " EXIT  INPUT
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE USER_COMMAND_0100 INPUT.
+  CASE SY-UCOMM.
+    WHEN 'EXIT' OR 'BACK' OR 'CANCEL'.
+      SET SCREEN 0.
+    WHEN 'SAVE'.
+      GT_ITAB-CREATED_BY = SY-UNAME.
+      GT_ITAB-CREATED_ON = SY-DATUM.
+      GT_ITAB-TIME       = SY-UZEIT.
+      MODIFY ZFI_PAYMENTS FROM GT_ITAB.
+      SET SCREEN 0.
+    WHEN 'DELETE'.
+      DELETE FROM ZFI_PAYMENTS WHERE KUNNR = GT_ITAB-KUNNR.
+  ENDCASE.
+  CLEAR SY-UCOMM.
+ENDMODULE.                 " USER_COMMAND_0100  INPUT
