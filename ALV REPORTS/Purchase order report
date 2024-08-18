@@ -1,0 +1,436 @@
+*&---------------------------------------------------------------------*
+*& Report  ZPURSCHASE_ORDER_ALV
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZPURSCHASE_ORDER_ALV.
+
+
+" EKKO, EKPO, LFA1
+TABLES : EKKO, EKPO.
+
+TYPES : BEGIN OF TP_LIST,
+        SEL,
+        EBELN TYPE EKKO-EBELN,
+        BSART TYPE EKKO-BSART,
+        AEDAT TYPE EKKO-AEDAT,
+        ERNAM TYPE EKKO-ERNAM,
+        LIFNR TYPE ELIFN,
+        NAME1 TYPE NAME1_GP,
+        EBELP TYPE EBELP,
+        TXZ01 TYPE TXZ01,
+        MATNR TYPE EKPO-MATNR,
+        MENGE TYPE EKPO-MENGE,
+        MEINS TYPE MEINS,
+        NETPR TYPE NETPR,
+        NETWR TYPE NETWR,
+        END OF TP_LIST.
+
+DATA : GT_LIST TYPE STANDARD TABLE OF TP_LIST,
+       GS_LIST TYPE TP_LIST,
+       GT_LFA1 TYPE STANDARD TABLE OF LFA1,
+       GS_LFA1 TYPE LFA1.
+
+DATA : GT_FCAT TYPE LVC_T_FCAT,
+       GS_FCAT TYPE LINE OF LVC_T_FCAT,
+       GS_LAYOUT TYPE LVC_S_LAYO,
+       GS_VARIANT TYPE DISVARIANT,
+       GS_GRID TYPE LVC_S_GLAY,
+       GV_CNT TYPE I.
+
+DATA : GT_HEADER TYPE SLIS_T_LISTHEADER,
+       GS_HEADER TYPE SLIS_LISTHEADER,
+       todays_date(10),
+       todays_time(10).
+
+
+
+CONSTANTS C_BSTYP TYPE EKPO-BSTYP  VALUE 'F'.
+
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT-001.
+
+SELECT-OPTIONS : S_EBELN FOR EKKO-EBELN,
+                 S_AEDAT FOR EKKO-AEDAT,
+                 S_BSART FOR EKKO-BSART MODIF ID DIS,
+                 S_MATNR FOR EKPO-MATNR.
+
+SELECTION-SCREEN SKIP.
+
+
+PARAMETERS : P_RD1 RADIOBUTTON GROUP RD1 USER-COMMAND CMD ,
+             P_RD2 RADIOBUTTON GROUP RD1,
+             P_RD3 RADIOBUTTON GROUP RD1.
+
+
+SELECTION-SCREEN END OF BLOCK B1.
+
+AT SELECTION-SCREEN OUTPUT.
+
+  IF P_RD1 IS NOT INITIAL.
+    CLEAR : S_BSART[].
+
+
+  ELSEIF P_RD2 IS NOT INITIAL.
+    CLEAR : S_BSART[].
+    S_BSART-SIGN = 'I'.
+    S_BSART-OPTION = 'EQ'.
+    S_BSART-LOW = 'NB'.
+    APPEND S_BSART.
+
+
+  ELSEIF P_RD3 IS NOT INITIAL.
+    CLEAR : S_BSART[].
+    S_BSART-SIGN = 'I'.
+    S_BSART-OPTION = 'EQ'.
+    S_BSART-LOW = 'FO'.
+    APPEND S_BSART.
+  ENDIF.
+  LOOP AT SCREEN.
+
+    IF P_RD1 IS INITIAL AND SCREEN-GROUP1 = 'DIS'.
+      SCREEN-INPUT = 0.
+      MODIFY SCREEN.
+    ENDIF.
+
+  ENDLOOP.
+
+
+
+
+INITIALIZATION.
+
+  S_AEDAT-SIGN = 'I'.
+  S_AEDAT-OPTION = 'BT'.
+  S_AEDAT-LOW = SY-DATUM - 365.
+  S_AEDAT-HIGH = SY-DATUM.
+  APPEND S_AEDAT.
+
+  IF P_RD1 IS INITIAL AND P_RD2 IS INITIAL AND P_RD3 IS INITIAL.
+    P_RD1 = 'X'.
+  ENDIF.
+
+
+START-OF-SELECTION.
+  PERFORM GET_DATA.
+  PERFORM BUILD_DATA.
+  PERFORM DISPLAY_DATA.
+
+
+END-OF-SELECTION.
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM GET_DATA .
+
+  SELECT A~EBELN A~BSART A~AEDAT A~ERNAM A~LIFNR
+       B~EBELP B~TXZ01 B~MATNR B~MENGE B~MEINS B~NETPR B~NETWR
+FROM EKKO AS A INNER JOIN EKPO AS B ON A~EBELN = B~EBELN
+INTO CORRESPONDING FIELDS OF TABLE GT_LIST
+WHERE A~EBELN IN S_EBELN
+  AND A~BSART IN S_BSART
+  AND A~AEDAT IN S_AEDAT
+  AND A~BSTYP = C_BSTYP
+  AND B~MATNR IN S_MATNR.
+
+
+  SORT GT_LIST BY LIFNR.
+  IF GT_LIST IS NOT INITIAL.
+
+    SELECT * FROM LFA1 INTO TABLE GT_LFA1 FOR ALL ENTRIES IN GT_LIST
+      WHERE LIFNR = GT_LIST-LIFNR.
+
+  ENDIF.
+
+ENDFORM.                    " GET_DATA
+*&---------------------------------------------------------------------*
+*&      Form  BUILD_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM BUILD_DATA .
+
+  LOOP AT GT_LIST INTO GS_LIST.
+
+    CLEAR GS_LFA1.
+    READ TABLE GT_LFA1 INTO GS_LFA1 WITH KEY LIFNR = GS_LIST-LIFNR.
+    IF SY-SUBRC = 0.
+      GS_LIST-NAME1 = GS_LFA1-NAME1.
+      MODIFY GT_LIST FROM GS_LIST TRANSPORTING NAME1.
+    ENDIF.
+
+
+  ENDLOOP.
+
+ENDFORM.                    " BUILD_DATA
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DISPLAY_DATA .
+
+  CLEAR : GV_CNT, GT_FCAT, GS_FCAT.
+  GS_LAYOUT-COL_OPT = 'X'.
+  GS_LAYOUT-BOX_FNAME = 'SEL'.
+  GS_VARIANT-REPORT   = SY-REPID.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS = GV_CNT.
+  GS_FCAT-FIELDNAME = 'EBELN'.
+  GS_FCAT-COLTEXT = 'PO Number'.
+  GS_FCAT-HOTSPOT = 'X'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS = GV_CNT.
+  GS_FCAT-FIELDNAME = 'AEDAT'.
+  GS_FCAT-COLTEXT = 'PO Date'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS = GV_CNT.
+  GS_FCAT-FIELDNAME = 'ERNAM'.
+  GS_FCAT-COLTEXT = 'Created By'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'BSART'.
+  GS_FCAT-COLTEXT      = 'Doc. Type'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'LIFNR'.
+  GS_FCAT-COLTEXT      = 'Vendor ID'.
+  GS_FCAT-NO_ZERO      =  'X'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'NAME1'.
+  GS_FCAT-COLTEXT      = 'Vendor Name'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'EBELP'.
+  GS_FCAT-COLTEXT      = 'Line item'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'TXZ01'.
+  GS_FCAT-COLTEXT      = 'Material text'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'MATNR'.
+  GS_FCAT-COLTEXT      = 'Material'.
+  GS_FCAT-NO_ZERO      =  'X'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'MENGE'.
+  GS_FCAT-COLTEXT      = 'Quantity'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'MEINS'.
+  GS_FCAT-COLTEXT      = 'UOM'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'NETPR'.
+  GS_FCAT-COLTEXT      = 'Net Price'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  GV_CNT = GV_CNT + 1.
+  GS_FCAT-COL_POS      =  GV_CNT.
+  GS_FCAT-FIELDNAME    = 'NETWR'.
+  GS_FCAT-COLTEXT      = 'Total Amount'.
+  APPEND GS_FCAT TO GT_FCAT.
+  CLEAR : GS_FCAT.
+
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+*     I_INTERFACE_CHECK      = ' '
+*     I_BYPASSING_BUFFER     =
+*     I_BUFFER_ACTIVE        =
+      I_CALLBACK_PROGRAM     = SY-REPID
+     I_CALLBACK_PF_STATUS_SET          = 'PF_STATUS'
+     I_CALLBACK_USER_COMMAND           = 'USER_COMMAND'
+      I_CALLBACK_TOP_OF_PAGE = 'TOP_OF_PAGE'
+*     I_CALLBACK_HTML_TOP_OF_PAGE       = ' '
+*     I_CALLBACK_HTML_END_OF_LIST       = ' '
+*     I_STRUCTURE_NAME       =
+*     I_BACKGROUND_ID        = ' '
+*     I_GRID_TITLE           =
+*     I_GRID_SETTINGS        =
+      IS_LAYOUT_LVC          = GS_LAYOUT
+      IT_FIELDCAT_LVC        = GT_FCAT
+*     IT_EXCLUDING           =
+*     IT_SPECIAL_GROUPS_LVC  =
+*     IT_SORT_LVC            =
+*     IT_FILTER_LVC          =
+*     IT_HYPERLINK           =
+*     IS_SEL_HIDE            =
+      I_DEFAULT              = 'X'
+      I_SAVE                 = 'A'
+      IS_VARIANT             = GS_VARIANT
+*     IT_EVENTS              =
+*     IT_EVENT_EXIT          =
+*     IS_PRINT_LVC           =
+*     IS_REPREP_ID_LVC       =
+*     I_SCREEN_START_COLUMN  = 0
+*     I_SCREEN_START_LINE    = 0
+*     I_SCREEN_END_COLUMN    = 0
+*     I_SCREEN_END_LINE      = 0
+*     I_HTML_HEIGHT_TOP      =
+*     I_HTML_HEIGHT_END      =
+*     IT_ALV_GRAPHICS        =
+*     IT_EXCEPT_QINFO_LVC    =
+*     IR_SALV_FULLSCREEN_ADAPTER        =
+*   IMPORTING
+*     E_EXIT_CAUSED_BY_CALLER           =
+*     ES_EXIT_CAUSED_BY_USER =
+    TABLES
+      T_OUTTAB               = GT_LIST
+    EXCEPTIONS
+      PROGRAM_ERROR          = 1
+      OTHERS                 = 2.
+  IF SY-SUBRC <> 0.
+* Implement suitable error handling here
+  ENDIF.
+
+
+
+ENDFORM.                    " DISPLAY_DATA
+
+
+*&---------------------------------------------------------------------*
+*&      Form  TOP_OF_PAGE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM TOP_OF_PAGE .
+  write sy-datum to todays_date.
+  write sy-uzeit to todays_time.
+
+  CLEAR : GT_HEADER.
+  GS_HEADER-TYP = 'H'.
+  GS_HEADER-INFO = 'Purchase Order Details'.
+  APPEND GS_HEADER TO GT_HEADER.
+  CLEAR : GS_HEADER.
+
+  GS_HEADER-TYP = 'S'.
+  GS_HEADER-KEY = 'Report run date'.
+  GS_HEADER-INFO = todays_date.
+  APPEND GS_HEADER TO GT_HEADER.
+  CLEAR : GS_HEADER.
+
+  GS_HEADER-TYP = 'S'.
+  GS_HEADER-KEY = 'Report run time'.
+  GS_HEADER-INFO = todays_time.
+  APPEND GS_HEADER TO GT_HEADER.
+  CLEAR : GS_HEADER.
+
+CALL FUNCTION 'REUSE_ALV_COMMENTARY_WRITE'
+  EXPORTING
+    IT_LIST_COMMENTARY       = gt_header
+*   I_LOGO                   =
+*   I_END_OF_LIST_GRID       =
+*   I_ALV_FORM               =
+          .
+
+
+ENDFORM.                    " TOP_OF_PAGE
+
+*&---------------------------------------------------------------------*
+*&      Form  USER_COMMAND
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM USER_COMMAND USING r_ucomm like sy-ucomm
+                        rs_selfield type slis_selfield.
+
+  case r_ucomm.
+
+    when '&IC1'.
+      READ TABLE gt_list INTO gs_list INDEX rs_selfield-tabindex.
+
+      if gs_list-ebeln is not INITIAL and rs_selfield-fieldname = 'EBELN'.
+      set PARAMETER ID 'BES' FIELD gs_list-ebeln.
+      call TRANSACTION 'ME23N' and SKIP FIRST SCREEN.
+
+      elseif gs_list-ebeln is not INITIAL.
+        SUBMIT ZPURSCHASE_ORDER_ALV with s_ebeln BETWEEN gs_list-ebeln AND gs_list-ebeln
+                                                           WITH p_rb1 = 'X' AND RETURN.
+    endif.
+
+    WHEN 'BACK'.
+      set SCREEN 0.
+    ENDCASE.
+
+
+
+ENDFORM.                    " USER_COMMAND
+
+
+*&---------------------------------------------------------------------*
+*&      Form  PF_STATUS
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM PF_STATUS USING rt_extab type slis_t_extab.
+
+
+  set PF-STATUS 'ZPF2'.
+
+ENDFORM.                    " PF_STATUS
