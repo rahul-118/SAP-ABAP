@@ -1,0 +1,264 @@
+*&---------------------------------------------------------------------*
+*& Report  ZORDER_CRUD_CLASS
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZORDER_CRUD_CLASS.
+
+"decalring needed variables for execution of the report.
+INITIALIZATION.
+INCLUDE Zorder_initialization.
+
+"Selection of parameters on basis of radiobuttons.
+AT SELECTION-SCREEN OUTPUT.
+INCLUDE ZORDER_SCREEN_CHANGES.
+
+"code for executing changes when radio button is selected
+AT SELECTION-SCREEN ON RADIOBUTTON GROUP rg1.
+  INCLUDE ZORDER_radiobutton.
+
+START-OF-SELECTION.
+
+"Object creation
+DATA : lo_object TYPE REF TO ZORDER_CLASS,
+       lv_output TYPE ZORDER_HEADER_TT.
+CREATE OBJECT lo_object.
+
+
+
+if p_read = 'X'.
+
+PERFORM read.
+
+elseif p_create = 'X'.
+  PERFORM create.
+
+elseif p_update = 'X'.
+  PERFORM update.
+ELSEIF p_delete = 'X'.
+  PERFORM delete.
+
+
+
+ENDIF.
+*&---------------------------------------------------------------------*
+*&      Form  CREATE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM CREATE .
+
+CALL METHOD LO_OBJECT->CREATE_ORDER
+  EXPORTING
+    PORDER         = p_order
+    PORDATE        = p_ordate
+    PCUSTID        = p_custid
+    PAMOUNT        = p_amt
+
+  EXCEPTIONS
+    EXISTING_ORDER = 1
+    OTHERS         = 2
+        .
+IF SY-SUBRC <> 0.
+   if sy-subrc = 1.
+    MESSAGE E002(Zmsg01).
+    elseif sy-subrc = 0.
+       MESSAGE 'Order added to Databse' TYPE 'S'.
+    endif.
+
+ENDIF.
+
+
+ENDFORM.                    " CREATE
+*&---------------------------------------------------------------------*
+*&      Form  READ
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM READ .
+CALL METHOD LO_OBJECT->READ_ORDER
+  EXPORTING
+    PORDER      = p_order
+  IMPORTING
+    RESULT      = lv_output
+  EXCEPTIONS
+    WRONG_ORDER = 1
+    OTHERS      = 2
+        .
+IF SY-SUBRC <> 0.
+  if sy-subrc = 1.
+    MESSAGE E001(Zmsg01).
+    endif.
+ endif.
+
+ cl_demo_output=>display( lv_output ).
+
+ENDFORM.                    " READ
+
+*&---------------------------------------------------------------------*
+*&      Form  UPDATE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM UPDATE .
+CALL METHOD LO_OBJECT->UPDATE_ORDER
+  EXPORTING
+    PORDER      = p_order
+    PORDATE     = p_ordate
+    PCUSTID     = p_custid
+    PAMOUNT     = p_amt
+  EXCEPTIONS
+    WRONG_ORDER = 1
+    OTHERS      = 2
+        .
+IF SY-SUBRC <> 0.
+  if sy-subrc = 1.
+    MESSAGE E001(Zmsg01).
+    endif.
+* Implement suitable error handling here
+ENDIF.
+
+ENDFORM.                    " UPDATE
+*&---------------------------------------------------------------------*
+*&      Form  DELETE
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM DELETE .
+CALL METHOD LO_OBJECT->DELETE_ORDER
+  EXPORTING
+    PORDER      = p_order
+  EXCEPTIONS
+    WRONG_ORDER = 1
+    OTHERS      = 2
+        .
+IF SY-SUBRC <> 0.
+   if sy-subrc = 1.
+    MESSAGE E001(Zmsg01).
+    endif.
+* Implement suitable error handling here
+ENDIF.
+
+ENDFORM.                    " DEL
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+*&---------------------------------------------------------------------*
+*&  Include           ZORDER_INITIALIZATION
+*&---------------------------------------------------------------------*
+
+DATA : lt_order TYPE STANDARD TABLE OF ZORDER_HEADER_D. "internal table of zorder_header_d
+
+FIELD-SYMBOLS : <fs_order> TYPE ZORDER_HEADER_D."field symbol for internal table it_order
+
+
+PARAMETERS: p_order TYPE ZORDER_HEADER_D-ORDER_NO. "Input field for Order Number
+
+"Selection block containing the CRUD operations
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+   PARAMETERS: p_read RADIOBUTTON GROUP rg1 USER-COMMAND flag DEFAULT 'X',"p_read will be enabled as default among the radiobuttons
+               p_create RADIOBUTTON GROUP rg1,
+               p_update RADIOBUTTON GROUP rg1,
+               p_delete RADIOBUTTON GROUP rg1.
+  SELECTION-SCREEN END OF BLOCK b1.
+
+
+ "Feilds for performing  the CRUD operations
+ PARAMETERS: p_custID type  ZORDER_HEADER_D-customer_ID MODIF ID pa1,
+             p_ordate TYPE  ZORDER_HEADER_D-order_date MODIF ID pa2,
+             p_amt    TYPE  ZORDER_HEADER_d-total_amount MODIF ID pa3.
+
+
+
+
+*&---------------------------------------------------------------------*
+*&  Include           ZORDER_SCREEN_CHANGES
+*&---------------------------------------------------------------------*
+
+LOOP AT SCREEN.
+   CASE screen-group1.
+     When 'PA1'.
+       if (  p_read = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+       if (  p_create = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_update = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_delete = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+
+     When 'PA2'.
+       if (  p_read = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+       if (  p_create = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_update = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_delete = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+     When 'PA3'.
+       if (  p_read = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+        if (  p_create = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_update = 'X' ).
+          screen-active = '1'.
+         ENDIF.
+       if (  p_delete = 'X' ).
+          screen-active = '0'.
+         ENDIF.
+         MODIFY SCREEN.
+
+
+         MODIFY SCREEN.
+     ENDCASE.
+   ENDLOOP.
+
+
+
+
+
+*&---------------------------------------------------------------------*
+*&  Include           ZORDER_RADIOBUTTON
+*&---------------------------------------------------------------------*
+
+"Getting data autofilled when update radiobutton is selected.
+  if ( p_update = 'X' ).
+
+    Select * from ZORDER_HEADER_d into CORRESPONDING FIELDS OF TABLE lt_order WHERE order_no = p_order.
+    LOOP AT lt_order ASSIGNING <fs_order>.
+          p_custID = <fs_order>-customer_id.
+          p_ordate = <fs_order>-order_date.
+          p_amt    = <fs_order>-total_amount.
+      ENDLOOP.
+
+    ENDIF.
